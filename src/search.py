@@ -48,7 +48,7 @@ class BootstrapSearch:
         cursor = self.conn.cursor()
 
         try:
-            # Use FTS5 MATCH for full-text search with BM25 ranking
+            # Use FTS5 MATCH for full-text search with BM25 ranking and snippet extraction
             cursor.execute("""
                 SELECT
                     m.id,
@@ -58,11 +58,12 @@ class BootstrapSearch:
                     m.section,
                     m.component_name,
                     m.url,
-                    fts.rank
+                    snippet(docs_fts, 2, '<mark>', '</mark>', '...', 64) as snippet,
+                    bm25(docs_fts) as relevance_score
                 FROM docs_fts fts
                 JOIN doc_metadata m ON m.id = fts.rowid
                 WHERE docs_fts MATCH ?
-                ORDER BY rank
+                ORDER BY bm25(docs_fts)
                 LIMIT ?
             """, (query, limit))
 
@@ -76,7 +77,8 @@ class BootstrapSearch:
                     'section': row['section'],
                     'component_name': row['component_name'],
                     'url': row['url'],
-                    'rank': row['rank']
+                    'snippet': row['snippet'],
+                    'relevance_score': abs(row['relevance_score'])
                 })
 
             return results

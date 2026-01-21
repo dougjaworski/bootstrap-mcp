@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from .git_manager import clone_or_update_bootstrap
 from .indexer import BootstrapIndexer, create_index
@@ -22,9 +23,18 @@ DATA_DIR = os.getenv('DATA_DIR', '/app/data')
 DB_PATH = os.path.join(DATA_DIR, 'bootstrap_docs.db')
 MCP_PORT = int(os.getenv('MCP_PORT', 8001))
 MCP_HOST = os.getenv('MCP_HOST', '0.0.0.0')
+MCP_ALLOWED_HOSTS = os.getenv('MCP_ALLOWED_HOSTS', 'localhost:*,127.0.0.1:*,0.0.0.0:*')
+allowed_hosts_list = [host.strip() for host in MCP_ALLOWED_HOSTS.split(",")]
 
 # Initialize FastMCP server
-mcp = FastMCP("Bootstrap CSS Documentation")
+mcp = FastMCP(
+    "Bootstrap CSS Documentation",
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=allowed_hosts_list,
+        allowed_origins=["*"]
+    )
+)
 
 # Global search interface
 _search: BootstrapSearch = None
