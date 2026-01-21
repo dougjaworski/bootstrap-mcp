@@ -12,17 +12,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Initialize on module import (for FastMCP)
+logger.info("Starting Bootstrap MCP Server initialization")
+if not initialize_server():
+    logger.error("Server initialization failed")
+    sys.exit(1)
+logger.info("Bootstrap MCP Server initialized successfully")
+
 
 def main():
-    """Main entry point."""
-    logger.info("Starting Bootstrap MCP Server initialization")
-
-    # Initialize the server (clone repo, build index)
-    if not initialize_server():
-        logger.error("Server initialization failed")
-        sys.exit(1)
-
-    logger.info("Bootstrap MCP Server initialized successfully")
+    """Main entry point for direct execution."""
     logger.info("Server is ready to accept connections")
 
 
