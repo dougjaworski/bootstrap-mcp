@@ -24,10 +24,7 @@ MCP_PORT = int(os.getenv('MCP_PORT', 8001))
 MCP_HOST = os.getenv('MCP_HOST', '0.0.0.0')
 
 # Initialize FastMCP server
-mcp = FastMCP(
-    "Bootstrap CSS Documentation",
-    dependencies=["fastmcp>=0.2.0", "python-frontmatter>=1.0.0", "GitPython>=3.1.40"]
-)
+mcp = FastMCP("Bootstrap CSS Documentation")
 
 # Global search interface
 _search: BootstrapSearch = None
