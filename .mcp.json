@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "bootstrap-docs": {
+      "url": "http://docker01:8001/mcp",
+      "description": "Bootstrap CSS documentation and component search"
+    }
+  }
+}

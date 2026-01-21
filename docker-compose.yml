@@ -1,0 +1,27 @@
+services:
+  bootstrap-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bootstrap-mcp
+    ports:
+      - "${MCP_PORT:-8001}:${MCP_PORT:-8001}"
+    volumes:
+      - bootstrap-docs:/app/data
+    environment:
+      - MCP_PORT=${MCP_PORT:-8001}
+      - MCP_HOST=${MCP_HOST:-0.0.0.0}
+      - MCP_ALLOWED_HOSTS=${MCP_ALLOWED_HOSTS:-localhost:*,127.0.0.1:*,0.0.0.0:*}
+      - DATA_DIR=${DATA_DIR:-/app/data}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  bootstrap-docs:
+    driver: local
