@@ -459,12 +459,15 @@ def refresh_docs() -> dict:
         successful, failed = indexer.build_index(docs_path)
 
         # Index examples if folder exists
-        examples_path = os.path.join(DATA_DIR, 'bootstrap-5.3.8-examples')
+        # Examples are copied into the Docker image at /app/bootstrap-5.3.8-examples/
+        examples_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'bootstrap-5.3.8-examples')
         successful_templates = 0
         failed_templates = 0
         if os.path.exists(examples_path):
             logger.info(f"Indexing examples from {examples_path}")
             successful_templates, failed_templates = indexer.build_templates_index(Path(examples_path))
+        else:
+            logger.warning(f"Examples directory not found at {examples_path}, skipping template indexing")
 
         indexer.close()
 
@@ -544,11 +547,14 @@ def initialize_server() -> bool:
         return False
 
     # Index examples if folder exists
-    examples_path = os.path.join(DATA_DIR, 'bootstrap-5.3.8-examples')
+    # Examples are copied into the Docker image at /app/bootstrap-5.3.8-examples/
+    examples_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'bootstrap-5.3.8-examples')
     if os.path.exists(examples_path):
         logger.info(f"Indexing examples from {examples_path}")
         successful_templates, failed_templates = create_templates_index(Path(examples_path), DB_PATH)
         logger.info(f"Templates indexed: {successful_templates} successful, {failed_templates} failed")
+    else:
+        logger.warning(f"Examples directory not found at {examples_path}, skipping template indexing")
 
     return True
 
