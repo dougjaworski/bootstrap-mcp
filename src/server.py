@@ -4,7 +4,7 @@ import logging
 import os
 from pathlib import Path
 
-from fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
 from .git_manager import clone_or_update_bootstrap
