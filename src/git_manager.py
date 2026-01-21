@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Bootstrap repository configuration
 BOOTSTRAP_REPO_URL = "https://github.com/twbs/bootstrap.git"
-DOCS_PATH = "site/content/docs"
+DOCS_PATH = "site/src/content/docs"
 DEFAULT_BRANCH = "main"
 
 
