@@ -223,6 +223,84 @@ def get_examples(query: str, limit: int = 5) -> dict:
 
 
 @mcp.tool()
+def get_related_components(component_name: str) -> dict:
+    """
+    Get components commonly used together with the specified component.
+
+    Args:
+        component_name: Name of the component (e.g., 'card', 'modal', 'navbar')
+
+    Returns:
+        Dictionary with related components and their documentation
+    """
+    logger.info(f"Getting related components for: {component_name}")
+
+    search = get_search()
+    results = search.get_related_components(component_name)
+
+    return {
+        'component': component_name,
+        'count': len(results),
+        'related_components': results
+    }
+
+
+@mcp.tool()
+def get_patterns(use_case: str) -> dict:
+    """
+    Get recommended Bootstrap components for a specific use case or pattern.
+
+    Args:
+        use_case: Use case name (e.g., 'blog', 'dashboard', 'landing', 'form', 'ecommerce', 'navigation')
+
+    Returns:
+        Dictionary with pattern description, recommended components, utilities, and sections
+    """
+    logger.info(f"Getting pattern for use case: {use_case}")
+
+    search = get_search()
+    result = search.get_use_case_pattern(use_case)
+
+    if result:
+        return {
+            'found': True,
+            'pattern': result
+        }
+    else:
+        # Return available use cases if not found
+        stats = search.get_statistics()
+        return {
+            'found': False,
+            'message': f"Use case '{use_case}' not found",
+            'available_use_cases': stats.get('available_use_cases', [])
+        }
+
+
+@mcp.tool()
+def get_stats() -> dict:
+    """
+    Get statistics about the Bootstrap documentation database.
+
+    Returns:
+        Dictionary with statistics including:
+        - Total document count
+        - Documents by section
+        - Top components by utility classes
+        - Top components by code examples
+        - Available use case patterns
+    """
+    logger.info("Getting documentation statistics")
+
+    search = get_search()
+    stats = search.get_statistics()
+
+    return {
+        'success': True,
+        'statistics': stats
+    }
+
+
+@mcp.tool()
 def refresh_docs() -> dict:
     """
     Update documentation from GitHub and rebuild the search index.

@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 # Regex patterns for Bootstrap-specific extraction
 CLASS_PATTERN = re.compile(r'class(?:Name)?=["\']([^"\']+)["\']')
-EXAMPLE_PATTERN = re.compile(r'<Example[^>]*>(.*?)</Example>', re.DOTALL)
+# Match <Example code={`...`} /> and <Example code={[...]} />
+EXAMPLE_PATTERN = re.compile(r'<Example[^>]*code=\{(`([^`]+)`|\[([^\]]+)\])\}[^>]*/?>', re.DOTALL)
 CALLOUT_PATTERN = re.compile(r'<Callout[^>]*>(.*?)</Callout>', re.DOTALL)
 
 # Bootstrap utility class patterns
@@ -164,6 +165,7 @@ class BootstrapDocParser:
     def _extract_code_examples(self, content: str) -> list[dict[str, str]]:
         """
         Extract code examples from <Example> JSX components.
+        Handles both <Example code={`...`} /> and <Example code={[...]} /> formats.
 
         Args:
             content: MDX content
@@ -174,7 +176,11 @@ class BootstrapDocParser:
         examples = []
         example_matches = EXAMPLE_PATTERN.findall(content)
 
-        for idx, example_content in enumerate(example_matches, 1):
+        for idx, match in enumerate(example_matches, 1):
+            # match is a tuple: (full_code_value, backtick_content, bracket_content)
+            # Use whichever one is not empty
+            example_content = match[1] if match[1] else match[2]
+
             # Clean up the content (remove extra whitespace, but preserve structure)
             cleaned_content = example_content.strip()
 
