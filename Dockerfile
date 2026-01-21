@@ -32,4 +32,4 @@ ENV MCP_PORT=8001
 ENV MCP_HOST=0.0.0.0
 
 # Run the server using fastmcp
-CMD ["fastmcp", "run", "run_server.py:mcp", "--transport", "http", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["sh", "-c", "python run_server.py && fastmcp run run_server.py:mcp --transport http --host 0.0.0.0 --port 8001"]
