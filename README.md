@@ -8,7 +8,9 @@ A Model Context Protocol (MCP) server for searching and exploring Bootstrap CSS 
 - **Component Lookup**: Find specific components (accordion, modal, navbar, etc.)
 - **Utility Class Search**: Search for utility classes (mt-3, d-flex, text-primary, etc.)
 - **Code Examples**: Extract and search HTML/CSS code examples
+- **Template Library**: Access to 41 production-ready HTML templates (dashboard, blog, checkout, etc.)
 - **Section Navigation**: Browse documentation by section (Components, Layout, Utilities, Forms, etc.)
+- **Use Case Patterns**: Get recommended components for specific use cases (blog, dashboard, ecommerce)
 - **Auto-Sync**: Refresh documentation directly from the Bootstrap GitHub repository
 - **SQLite FTS5**: Fast full-text search with efficient indexing
 - **Docker Ready**: Easy deployment with Docker Compose
@@ -114,7 +116,7 @@ For remote servers, replace `localhost` with your hostname:
 
 ## MCP Tools
 
-The server provides 8 MCP tools for interacting with Bootstrap documentation:
+The server provides 15 MCP tools for interacting with Bootstrap documentation and templates:
 
 ### 1. search_docs
 
@@ -209,7 +211,113 @@ get_examples(
 
 **Returns**: HTML/CSS code examples extracted from `<Example>` JSX components.
 
-### 8. refresh_docs
+### 8. get_related_components
+
+Get components commonly used together with a specified component.
+
+```python
+get_related_components(component_name="card")
+```
+
+**Returns**: List of related components with their documentation URLs.
+
+### 9. get_patterns
+
+Get recommended Bootstrap components for a specific use case or pattern.
+
+```python
+get_patterns(use_case="dashboard")
+```
+
+**Supported use cases**:
+- `blog`: Blog posts and article layouts
+- `article`: Content-heavy pages
+- `dashboard`: Admin panels and data management
+- `landing`: Landing pages and marketing sites
+- `form`: Form layouts and validation
+- `navigation`: Navigation patterns and menus
+- `ecommerce`: Product listings and shopping
+- `admin`: Admin panels and management interfaces
+
+**Returns**: Pattern description, recommended components, templates, utilities, and sections.
+
+### 10. get_stats
+
+Get statistics about the Bootstrap documentation database.
+
+```python
+get_stats()
+```
+
+**Returns**: Total document count, documents by section, top components, available use cases, and template statistics.
+
+### 11. search_templates
+
+Search Bootstrap example templates by name, description, or components.
+
+```python
+search_templates(
+    query="dashboard",
+    category="admin",  # Optional: filter by category
+    limit=10
+)
+```
+
+**Template categories**:
+- `admin`: Dashboard and admin panel layouts
+- `content`: Blog, album, and content-focused layouts
+- `forms`: Sign-in and checkout forms
+- `navigation`: Navbar, sidebar, and breadcrumb examples
+- `layouts`: Grid, heroes, headers, footers, sticky layouts
+- `components`: Individual component showcases
+- `reference`: Complete component references (cheatsheet)
+
+**Returns**: List of matching templates with metadata, components used, and URLs.
+
+### 12. get_template
+
+Get complete template code and metadata.
+
+```python
+get_template(name="dashboard")
+```
+
+**Available templates** (41 total):
+- **Admin**: dashboard, dashboard-rtl
+- **Content**: blog, blog-rtl, album, album-rtl, cover, product
+- **Forms**: sign-in, checkout, checkout-rtl
+- **Navigation**: navbars, navbars-offcanvas, navbars-static, offcanvas-navbar, sidebars, breadcrumbs
+- **Layouts**: grid, heroes, headers, footers, sticky-footer, sticky-footer-navbar, starter-template, features, masonry
+- **Components**: buttons, badges, dropdowns, modals, carousel, carousel-rtl, offcanvas, list-groups, jumbotron
+- **Reference**: cheatsheet, cheatsheet-rtl
+- **Other**: pricing
+
+**Returns**: Full HTML code, custom CSS, custom JavaScript, components used, utility classes, and RTL variant information.
+
+### 13. list_template_categories
+
+List all template categories with template names and counts.
+
+```python
+list_template_categories()
+```
+
+**Returns**: Dictionary of categories with template counts and template names.
+
+### 14. get_template_preview
+
+Get a preview of a specific section of a template.
+
+```python
+get_template_preview(
+    name="dashboard",
+    section="main"  # Options: 'header', 'nav', 'main', 'footer', 'full'
+)
+```
+
+**Returns**: Code snippet for the specified section (first 500 lines for 'full').
+
+### 15. refresh_docs
 
 Update documentation from GitHub and rebuild index.
 
@@ -217,7 +325,35 @@ Update documentation from GitHub and rebuild index.
 refresh_docs()
 ```
 
-**Returns**: Refresh status and statistics.
+**Returns**: Refresh status and statistics (including template indexing).
+
+## Template Library
+
+The server includes **41 production-ready HTML templates** from Bootstrap's official examples. These templates complement the component documentation by showing complete page patterns.
+
+### Template Categories
+
+- **Admin** (2): dashboard, dashboard-rtl
+- **Content** (6): blog, blog-rtl, album, album-rtl, cover, product
+- **Forms** (3): sign-in, checkout, checkout-rtl
+- **Navigation** (6): navbars, navbars-offcanvas, navbars-static, offcanvas-navbar, sidebars, breadcrumbs
+- **Layouts** (10): grid, heroes, headers, footers, sticky-footer, sticky-footer-navbar, starter-template, features, masonry, jumbotron
+- **Components** (8): buttons, badges, dropdowns, modals, carousel, carousel-rtl, offcanvas, list-groups
+- **Reference** (2): cheatsheet, cheatsheet-rtl
+- **Other** (4): pricing
+
+### Template vs. Documentation
+
+| Type | Purpose | Example |
+|------|---------|---------|
+| **Documentation** | Component reference | "How to use a button component" |
+| **Template** | Complete page pattern | "Complete dashboard with sidebar and tables" |
+
+Templates are perfect for:
+- Starting new projects with pre-built layouts
+- Learning how components work together
+- Understanding responsive design patterns
+- Following Bootstrap best practices
 
 ## Documentation Structure
 
@@ -310,6 +446,42 @@ CREATE VIRTUAL TABLE docs_fts USING fts5(
 );
 ```
 
+### template_metadata Table
+
+```sql
+CREATE TABLE template_metadata (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    title TEXT,
+    category TEXT NOT NULL,          -- admin, content, forms, navigation, layouts, etc.
+    description TEXT,
+    complexity TEXT,                  -- simple, intermediate, complex
+    html_path TEXT NOT NULL,
+    css_files TEXT,                  -- JSON array of custom CSS files
+    js_files TEXT,                   -- JSON array of custom JavaScript files
+    components TEXT,                 -- JSON array of Bootstrap components used
+    utility_classes TEXT,            -- JSON array of utility classes used
+    has_rtl_variant BOOLEAN,
+    rtl_template_name TEXT,
+    is_rtl BOOLEAN,
+    url TEXT,                        -- Bootstrap example URL
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### templates_fts Virtual Table (FTS5)
+
+```sql
+CREATE VIRTUAL TABLE templates_fts USING fts5(
+    name,
+    title,
+    category,
+    description,
+    components,
+    tokenize = 'porter unicode61'
+);
+```
+
 ## Development
 
 ### Local Development
@@ -350,15 +522,18 @@ fastmcp run run_server.py:mcp --transport http --host 0.0.0.0 --port 8001
 bootstrap-mcp/
 ├── src/
 │   ├── __init__.py           # Package initialization
-│   ├── server.py             # FastMCP server with 8 tools
-│   ├── indexer.py            # SQLite FTS5 indexing
-│   ├── search.py             # Search functionality
+│   ├── server.py             # FastMCP server with 15 tools
+│   ├── indexer.py            # SQLite FTS5 indexing (docs + templates)
+│   ├── search.py             # Documentation search functionality
+│   ├── examples_parser.py    # HTML template parser
+│   ├── examples_search.py    # Template search functionality
 │   ├── git_manager.py        # Bootstrap repo management
 │   └── parser.py             # MDX parsing for Bootstrap docs
 ├── run_server.py             # Server entry point
 ├── Dockerfile                # Container configuration
 ├── docker-compose.yml        # Service orchestration
 ├── requirements.txt          # Python dependencies
+├── bootstrap-5.3.8-examples/ # 41 HTML example templates
 ├── .env.example              # Environment template
 ├── .gitignore               # Git ignore rules
 ├── .dockerignore            # Docker ignore rules
@@ -369,10 +544,10 @@ bootstrap-mcp/
 
 ## Performance
 
-- **First startup**: 1-2 minutes (clone + index ~250-300 docs)
+- **First startup**: 1-2 minutes (clone + index ~250-300 docs + 41 templates)
 - **Subsequent startups**: <5 seconds (cached data)
 - **Search queries**: <100ms
-- **Database size**: ~8-12 MB
+- **Database size**: ~20-30 MB (docs + templates)
 - **Memory usage**: ~50-100 MB
 
 ## Troubleshooting

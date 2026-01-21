@@ -8,8 +8,9 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
 from .git_manager import clone_or_update_bootstrap
-from .indexer import BootstrapIndexer, create_index
+from .indexer import BootstrapIndexer, create_index, create_templates_index
 from .search import BootstrapSearch
+from .examples_search import BootstrapExampleSearch
 
 # Configure logging
 logging.basicConfig(
@@ -28,7 +29,7 @@ allowed_hosts_list = [host.strip() for host in MCP_ALLOWED_HOSTS.split(",")]
 
 # Initialize FastMCP server
 mcp = FastMCP(
-    "Bootstrap CSS Documentation",
+    "Bootstrap CSS Documentation & Templates - Search Bootstrap 5.3 documentation, components, utility classes, and access 41 production-ready HTML templates (dashboard, blog, checkout, etc.) with full code examples",
     transport_security=TransportSecuritySettings(
         enable_dns_rebinding_protection=True,
         allowed_hosts=allowed_hosts_list,
@@ -38,6 +39,7 @@ mcp = FastMCP(
 
 # Global search interface
 _search: BootstrapSearch = None
+_examples_search: BootstrapExampleSearch = None
 
 
 def get_search() -> BootstrapSearch:
@@ -46,6 +48,14 @@ def get_search() -> BootstrapSearch:
     if _search is None:
         _search = BootstrapSearch(DB_PATH)
     return _search
+
+
+def get_examples_search() -> BootstrapExampleSearch:
+    """Get or create the examples search interface."""
+    global _examples_search
+    if _examples_search is None:
+        _examples_search = BootstrapExampleSearch(DB_PATH)
+    return _examples_search
 
 
 @mcp.tool()
@@ -288,16 +298,137 @@ def get_stats() -> dict:
         - Top components by utility classes
         - Top components by code examples
         - Available use case patterns
+        - Template statistics (count, categories, complexity)
     """
     logger.info("Getting documentation statistics")
 
     search = get_search()
     stats = search.get_statistics()
 
+    # Add template statistics
+    examples_search = get_examples_search()
+    template_stats = examples_search.get_template_statistics()
+
     return {
         'success': True,
-        'statistics': stats
+        'statistics': stats,
+        'templates': template_stats
     }
+
+
+@mcp.tool()
+def search_templates(query: str, category: str = None, limit: int = 10) -> dict:
+    """
+    Search Bootstrap example templates by name, description, or components.
+
+    Args:
+        query: Search query (e.g., 'dashboard', 'blog layout', 'admin panel')
+        category: Optional filter ('admin', 'content', 'forms', 'navigation', 'layouts', 'components', 'reference', 'other')
+        limit: Maximum results (default: 10)
+
+    Returns:
+        List of matching templates with metadata
+    """
+    logger.info(f"Searching templates for: {query} (category: {category}, limit: {limit})")
+
+    examples_search = get_examples_search()
+    results = examples_search.search_templates(query, category, limit)
+
+    return {
+        'query': query,
+        'category': category,
+        'count': len(results),
+        'results': results
+    }
+
+
+@mcp.tool()
+def get_template(name: str) -> dict:
+    """
+    Get complete template code and metadata.
+
+    Args:
+        name: Template name (e.g., 'dashboard', 'blog', 'checkout')
+
+    Returns:
+        Template metadata, HTML code, custom CSS, custom JavaScript
+    """
+    logger.info(f"Getting template: {name}")
+
+    examples_search = get_examples_search()
+    result = examples_search.get_template(name)
+
+    if result:
+        return {
+            'name': name,
+            'found': True,
+            'data': result
+        }
+    else:
+        return {
+            'name': name,
+            'found': False,
+            'message': f"Template '{name}' not found"
+        }
+
+
+@mcp.tool()
+def list_template_categories() -> dict:
+    """
+    List all template categories with counts.
+
+    Returns:
+        Categories with template counts:
+        - admin (dashboard, dashboard-rtl)
+        - content (blog, album, cover, product)
+        - forms (sign-in, checkout)
+        - navigation (navbars, offcanvas, sidebars)
+        - layouts (grid, heroes, sticky-footer, headers, footers)
+        - components (buttons, badges, dropdowns, modals, carousel)
+        - reference (cheatsheet)
+    """
+    logger.info("Listing template categories")
+
+    examples_search = get_examples_search()
+    categories = examples_search.list_template_categories()
+
+    return {
+        'count': len(categories),
+        'categories': categories
+    }
+
+
+@mcp.tool()
+def get_template_preview(name: str, section: str = 'main') -> dict:
+    """
+    Get code preview for a specific section of the template.
+
+    Args:
+        name: Template name
+        section: Section to extract ('header', 'nav', 'main', 'footer', 'full')
+
+    Returns:
+        Code snippet for the specified section (max 500 lines for 'full')
+    """
+    logger.info(f"Getting template preview: {name} (section: {section})")
+
+    examples_search = get_examples_search()
+    result = examples_search.get_template_preview(name, section)
+
+    if result:
+        return {
+            'name': name,
+            'section': section,
+            'found': True,
+            'data': result
+        }
+    else:
+        return {
+            'name': name,
+            'section': section,
+            'found': False,
+            'message': f"Template '{name}' not found"
+        }
 
 
 @mcp.tool()
@@ -326,21 +457,36 @@ def refresh_docs() -> dict:
         # Rebuild index
         indexer = BootstrapIndexer(DB_PATH)
         successful, failed = indexer.build_index(docs_path)
+
+        # Index examples if folder exists
+        examples_path = os.path.join(DATA_DIR, 'bootstrap-5.3.8-examples')
+        successful_templates = 0
+        failed_templates = 0
+        if os.path.exists(examples_path):
+            logger.info(f"Indexing examples from {examples_path}")
+            successful_templates, failed_templates = indexer.build_templates_index(Path(examples_path))
+
         indexer.close()
 
-        # Reconnect search interface
-        global _search
+        # Reconnect search interfaces
+        global _search, _examples_search
         if _search:
             _search.close()
             _search = None
+        if _examples_search:
+            _examples_search.close()
+            _examples_search = None
 
         return {
             'success': True,
             'message': 'Documentation refreshed successfully',
             'stats': {
-                'indexed': successful,
-                'failed': failed,
-                'total': successful + failed
+                'docs_indexed': successful,
+                'docs_failed': failed,
+                'docs_total': successful + failed,
+                'templates_indexed': successful_templates,
+                'templates_failed': failed_templates,
+                'templates_total': successful_templates + failed_templates
             }
         }
 
@@ -393,10 +539,18 @@ def initialize_server() -> bool:
 
     if successful > 0:
         logger.info(f"Initialization complete: {successful} documents indexed, {failed} failed")
-        return True
     else:
         logger.error("Failed to index any documents")
         return False
+
+    # Index examples if folder exists
+    examples_path = os.path.join(DATA_DIR, 'bootstrap-5.3.8-examples')
+    if os.path.exists(examples_path):
+        logger.info(f"Indexing examples from {examples_path}")
+        successful_templates, failed_templates = create_templates_index(Path(examples_path), DB_PATH)
+        logger.info(f"Templates indexed: {successful_templates} successful, {failed_templates} failed")
+
+    return True
 
 
 # Initialize on module load

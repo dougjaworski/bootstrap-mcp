@@ -92,44 +92,58 @@ USE_CASE_PATTERNS = {
     'blog': {
         'description': 'Components for blog posts and article layouts',
         'components': ['typography', 'images', 'card', 'grid', 'figures', 'breadcrumb'],
+        'templates': ['blog', 'blog-rtl', 'album', 'album-rtl'],
         'utilities': ['spacing', 'text', 'colors'],
         'sections': ['content', 'components', 'layout']
     },
     'article': {
         'description': 'Article and content-heavy page layouts',
         'components': ['typography', 'images', 'figures', 'blockquote', 'grid'],
+        'templates': ['blog', 'blog-rtl'],
         'utilities': ['spacing', 'text', 'display'],
         'sections': ['content', 'layout']
     },
     'dashboard': {
         'description': 'Dashboard and admin panel layouts',
         'components': ['card', 'grid', 'navbar', 'offcanvas', 'table', 'badge', 'progress'],
+        'templates': ['dashboard', 'dashboard-rtl', 'sidebars'],
         'utilities': ['flex', 'spacing', 'colors', 'sizing'],
         'sections': ['components', 'layout', 'utilities']
     },
     'landing': {
         'description': 'Landing page and marketing site patterns',
         'components': ['navbar', 'carousel', 'card', 'grid', 'buttons', 'modal'],
+        'templates': ['cover', 'heroes', 'features', 'pricing', 'product'],
         'utilities': ['spacing', 'text', 'display', 'flex'],
         'sections': ['components', 'layout', 'content']
     },
     'form': {
         'description': 'Form layouts and validation patterns',
         'components': ['forms', 'input-group', 'validation', 'buttons', 'grid'],
+        'templates': ['sign-in', 'checkout', 'checkout-rtl'],
         'utilities': ['spacing', 'sizing'],
         'sections': ['forms', 'components']
     },
     'navigation': {
         'description': 'Navigation patterns and menus',
         'components': ['navbar', 'nav', 'breadcrumb', 'pagination', 'dropdown'],
+        'templates': ['navbars', 'navbars-offcanvas', 'navbars-static', 'offcanvas-navbar', 'sidebars', 'breadcrumbs'],
         'utilities': ['flex', 'spacing', 'text'],
         'sections': ['components']
     },
     'ecommerce': {
         'description': 'E-commerce product listings and shopping',
         'components': ['card', 'grid', 'buttons', 'badge', 'modal', 'carousel'],
+        'templates': ['product', 'checkout', 'checkout-rtl', 'pricing', 'album'],
         'utilities': ['spacing', 'flex', 'colors'],
         'sections': ['components', 'layout']
+    },
+    'admin': {
+        'description': 'Admin panel and data management interfaces',
+        'components': ['table', 'card', 'navbar', 'offcanvas', 'forms', 'badge', 'dropdown'],
+        'templates': ['dashboard', 'dashboard-rtl'],
+        'utilities': ['flex', 'spacing', 'colors', 'sizing'],
+        'sections': ['components', 'layout', 'utilities']
     },
 }
 
@@ -643,6 +657,7 @@ class BootstrapSearch:
                 'use_case': use_case,
                 'description': pattern['description'],
                 'components': component_details,
+                'templates': pattern.get('templates', []),
                 'utilities': pattern['utilities'],
                 'sections': pattern['sections']
             }

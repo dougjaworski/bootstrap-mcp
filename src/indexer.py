@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .parser import BootstrapDocParser
+from .examples_parser import BootstrapExampleParser
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,66 @@ class BootstrapIndexer:
         self.conn.commit()
         logger.info("Database initialized successfully")
 
+    def initialize_templates_database(self) -> None:
+        """Create database tables and indexes for templates."""
+        if not self.conn:
+            self.connect()
+
+        cursor = self.conn.cursor()
+
+        # Create template metadata table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS template_metadata (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                title TEXT,
+                category TEXT NOT NULL,
+                description TEXT,
+                complexity TEXT,
+                html_path TEXT NOT NULL,
+                css_files TEXT,
+                js_files TEXT,
+                components TEXT,
+                utility_classes TEXT,
+                has_rtl_variant BOOLEAN DEFAULT 0,
+                rtl_template_name TEXT,
+                is_rtl BOOLEAN DEFAULT 0,
+                url TEXT,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Create FTS5 virtual table for template search
+        cursor.execute("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS templates_fts USING fts5(
+                name,
+                title,
+                category,
+                description,
+                components,
+                tokenize = 'porter unicode61'
+            )
+        """)
+
+        # Create indexes
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_template_name
+            ON template_metadata(name)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_template_category
+            ON template_metadata(category)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_template_complexity
+            ON template_metadata(complexity)
+        """)
+
+        self.conn.commit()
+        logger.info("Template database initialized successfully")
+
     def clear_index(self) -> None:
         """Clear all indexed documents."""
         if not self.conn:
@@ -101,6 +162,17 @@ class BootstrapIndexer:
         cursor.execute("DELETE FROM doc_metadata")
         self.conn.commit()
         logger.info("Index cleared")
+
+    def clear_templates_index(self) -> None:
+        """Clear all indexed templates."""
+        if not self.conn:
+            self.connect()
+
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM templates_fts")
+        cursor.execute("DELETE FROM template_metadata")
+        self.conn.commit()
+        logger.info("Templates index cleared")
 
     def index_document(self, doc: dict[str, Any]) -> bool:
         """
@@ -251,6 +323,120 @@ class BootstrapIndexer:
 
         return [row[0] for row in cursor.fetchall()]
 
+    def index_template(self, template: dict[str, Any]) -> bool:
+        """
+        Index a single template.
+
+        Args:
+            template: Parsed template dictionary
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.conn:
+            self.connect()
+
+        try:
+            cursor = self.conn.cursor()
+
+            # Insert into metadata table
+            cursor.execute("""
+                INSERT OR REPLACE INTO template_metadata
+                (name, title, category, description, complexity,
+                 html_path, css_files, js_files, components, utility_classes,
+                 has_rtl_variant, rtl_template_name, is_rtl, url)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                template['name'],
+                template['title'],
+                template['category'],
+                template['description'],
+                template['complexity'],
+                template['html_path'],
+                json.dumps(template['css_files']),
+                json.dumps(template['js_files']),
+                json.dumps(template['components']),
+                json.dumps(template['utility_classes']),
+                template['has_rtl_variant'],
+                template['rtl_template_name'],
+                template['is_rtl'],
+                template['url']
+            ))
+
+            # Get the row id
+            metadata_id = cursor.lastrowid
+
+            # Insert into FTS5 table
+            cursor.execute("""
+                INSERT OR REPLACE INTO templates_fts
+                (rowid, name, title, category, description, components)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                metadata_id,
+                template['name'],
+                template['title'],
+                template['category'],
+                template['description'],
+                ' '.join(template['components'])
+            ))
+
+            self.conn.commit()
+            return True
+
+        except Exception as e:
+            logger.error(f"Error indexing template {template.get('name', 'unknown')}: {e}")
+            return False
+
+    def build_templates_index(self, examples_path: Path) -> tuple[int, int]:
+        """
+        Build the complete index for example templates.
+
+        Args:
+            examples_path: Path to the Bootstrap examples directory
+
+        Returns:
+            Tuple of (successful_count, failed_count)
+        """
+        logger.info(f"Building templates index from {examples_path}")
+
+        # Initialize database
+        self.initialize_templates_database()
+
+        # Clear existing index
+        self.clear_templates_index()
+
+        # Parse all templates
+        parser = BootstrapExampleParser(examples_path)
+        templates = parser.parse_directory()
+
+        # Index each template
+        successful = 0
+        failed = 0
+
+        for template in templates:
+            if self.index_template(template):
+                successful += 1
+            else:
+                failed += 1
+
+        logger.info(f"Template indexing complete: {successful} successful, {failed} failed")
+        return successful, failed
+
+    def get_template_count(self) -> int:
+        """
+        Get the total number of indexed templates.
+
+        Returns:
+            Template count
+        """
+        if not self.conn:
+            self.connect()
+
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM template_metadata")
+        result = cursor.fetchone()
+        return result[0] if result else 0
+
 
 def create_index(docs_path: Path, db_path: str) -> tuple[int, int]:
     """
@@ -266,5 +452,23 @@ def create_index(docs_path: Path, db_path: str) -> tuple[int, int]:
     indexer = BootstrapIndexer(db_path)
     try:
         return indexer.build_index(docs_path)
+    finally:
+        indexer.close()
+
+
+def create_templates_index(examples_path: Path, db_path: str) -> tuple[int, int]:
+    """
+    Convenience function to create a new templates index.
+
+    Args:
+        examples_path: Path to the examples directory
+        db_path: Path to the database file
+
+    Returns:
+        Tuple of (successful_count, failed_count)
+    """
+    indexer = BootstrapIndexer(db_path)
+    try:
+        return indexer.build_templates_index(examples_path)
     finally:
         indexer.close()
