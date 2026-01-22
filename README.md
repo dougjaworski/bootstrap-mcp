@@ -30,6 +30,7 @@ Built with [FastMCP](https://github.com/jlowin/fastmcp) and designed for both lo
 - [Development](#development)
 - [Performance](#performance)
 - [Troubleshooting](#troubleshooting)
+- [Security Considerations](#security-considerations)
 - [Contributing](#contributing)
 - [License](#license)
 - [Credits](#credits)
