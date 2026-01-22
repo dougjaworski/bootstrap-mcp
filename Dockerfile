@@ -16,10 +16,12 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY . .
+# Copy source code
+COPY src/ ./src/
+COPY run_server.py .
+COPY bootstrap-5.3.8-examples/ ./bootstrap-5.3.8-examples/
 
-# Create data directory
+# Create data directory for repository and database
 RUN mkdir -p /app/data
 
 # Expose port 8001
